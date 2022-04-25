@@ -1,0 +1,12 @@
+@use "../../styles/mixins" as *;
+
+.signup-page-wrapper {
+  @include auth-screen-wrapper;
+  .signup-page {
+    max-width: 1000px;
+    &__form {
+      @include auth-screen-form;
+      background-color: orange;
+    }
+  }
+}
