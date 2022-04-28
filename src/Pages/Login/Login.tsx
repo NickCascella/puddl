@@ -49,6 +49,11 @@ const Login = () => {
     }
   };
 
+  const renderErrors = (filter: string) => {
+    const filteredErrors = errors.filter((err) => err.param === filter);
+    return filteredErrors.map((item) => <p key={item.msg}>{item.msg}</p>);
+  };
+
   return (
     <div className="login-page-wrapper">
       <section className="login-page">
@@ -64,24 +69,14 @@ const Login = () => {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
           ></input>
-          {errors
-            ? errors.map((err) => {
-                if (err.param === "username")
-                  return <p key={err.msg}>{err.msg}</p>;
-              })
-            : null}
+          {errors ? renderErrors("username") : null}
           <label>Password</label>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           ></input>
-          {errors
-            ? errors.map((err) => {
-                if (err.param === "password")
-                  return <p key={err.msg}>{err.msg}</p>;
-              })
-            : null}
+          {errors ? renderErrors("password") : null}
           {location.pathname === "/signup" ? (
             <>
               <label>Confirm password</label>
@@ -90,12 +85,7 @@ const Login = () => {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
               ></input>
-              {errors
-                ? errors.map((err) => {
-                    if (err.param === "confirmPassword")
-                      return <p key={err.msg}>{err.msg}</p>;
-                  })
-                : null}
+              {errors ? renderErrors("confirmPassword") : null}
             </>
           ) : null}
 

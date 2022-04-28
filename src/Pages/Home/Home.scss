@@ -1,0 +1,17 @@
+.chat-ui {
+  display: flex;
+  height: 80%;
+  padding: 4rem;
+  &__list {
+    width: 20%;
+    border: 2px solid black;
+    height: 80vh;
+  }
+  &__current-chat {
+    border-top: 2px solid black;
+    border-right: 2px solid black;
+    border-bottom: 2px solid black;
+    width: 80%;
+    height: 80vh;
+  }
+}

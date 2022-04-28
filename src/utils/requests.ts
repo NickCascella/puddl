@@ -43,6 +43,18 @@ const requests = {
       return err.response.data;
     }
   },
+  sendMessage: async (message: string, username: string, chatID: string) => {
+    try {
+      const response = await axios.post(`${API}/chat`, {
+        message,
+        username,
+        chatID,
+      });
+      return response.data.response;
+    } catch (err: any) {
+      return err.response.data;
+    }
+  },
 };
 
 export default requests;
