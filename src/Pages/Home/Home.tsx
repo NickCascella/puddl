@@ -3,7 +3,14 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import requests from "../../utils/requests";
 import Socket from "../../utils/socket";
-import { Typography, Button, Box, Container, TextField } from "@mui/material";
+import {
+  Typography,
+  Button,
+  Box,
+  Container,
+  TextField,
+  styled,
+} from "@mui/material";
 
 interface Token {
   user: string;
@@ -19,7 +26,45 @@ interface ReceivedMessage {
   message: string;
   username: string;
   chatroom: string;
+  timestamp: string;
 }
+
+const ChatBubbleWrapper = styled("div")({
+  position: "relative",
+});
+
+const ChatBubble = styled("div")({
+  color: "white",
+  backgroundColor: "blue",
+  padding: "1rem",
+  borderRadius: 4,
+  position: "relative",
+  marginBottom: "1rem",
+  maxWidth: "70%",
+  width: "max-content",
+  // ":after": {
+  //   content: "''",
+  //   top: "1px",
+  //   transform: "scaleX(-1)",
+  //   position: "absolute",
+  //   border: "0px solid",
+  //   display: "block",
+  //   width: "20px",
+  //   height: "15px",
+  //   backgroundColor: "transparent",
+  //   borderBottomLeftRadius: "50%",
+  //   borderBottomRightRadius: "50%",
+  //   boxShadow: "-21px 9px 0px 8px pink",
+  // },
+});
+
+const ChatBubbleTail = styled("div")({
+  color: "yellow",
+  backgroundColor: "blue",
+  width: "max-content",
+  padding: 8,
+  borderRadius: 4,
+});
 
 const Home = () => {
   const navigate = useNavigate();
@@ -29,6 +74,7 @@ const Home = () => {
   const [createRoom, setCreateRoom] = useState("Global");
   const [joinedRoom, setJoinedRooms] = useState<string[]>([]);
   const [message, setMessage] = useState("");
+  const [updateView, setUpdateView] = useState(true);
   const [allMessages, setAllMessages] = useState<Array<ReceivedMessage>>([]);
 
   useEffect(() => {
@@ -45,6 +91,12 @@ const Home = () => {
     verifyUser();
   }, []);
 
+  useEffect(() => {
+    if (chatContainer.current) {
+      chatContainer.current.scrollTop = chatContainer.current.scrollHeight;
+    }
+  }, [updateView]);
+
   const joinRoom = () => {
     Socket.emit("join-room", { chatroom: createRoom });
     setCurrentRoom(createRoom);
@@ -60,10 +112,8 @@ const Home = () => {
     let chatMessages = [...allMessages];
     chatMessages.push(data);
     setAllMessages(chatMessages);
-    if (chatContainer.current) {
-      console.log(chatContainer.current.scrollHeight);
-      chatContainer.current.scrollTop =
-        chatContainer.current.scrollHeight + 160;
+    if (data.chatroom === currentRoom) {
+      setUpdateView(!updateView);
     }
   });
 
@@ -111,7 +161,14 @@ const Home = () => {
               Chats
             </Typography>
             {joinedRoom.map((room) => (
-              <Box onClick={() => setCurrentRoom(room)}>{room}</Box>
+              <Box
+                onClick={() => {
+                  setCurrentRoom(room);
+                  setUpdateView(!updateView);
+                }}
+              >
+                {room}
+              </Box>
             ))}
           </Box>
 
@@ -119,8 +176,8 @@ const Home = () => {
             display="flex"
             flexDirection="column"
             justifyContent="flex-end"
-            minWidth="max-content"
-            flexGrow={1}
+            // minWidth="max-content"
+            width="80%"
             padding="1rem 1rem 2rem"
             sx={{ border: "2px solid black", borderLeft: "none" }}
           >
@@ -129,33 +186,44 @@ const Home = () => {
             </Typography>
 
             <Box
-              height="100%"
               overflow="auto"
               padding="1rem 0"
               boxSizing="border-box"
-              // display="flex"
-              // flexDirection="column"
-              // justifyContent="end"
               ref={chatContainer}
+              sx={{
+                scrollBehavior: "smooth",
+              }}
             >
               {allMessages.length
                 ? allMessages
                     .filter((data) => data.chatroom === currentRoom)
                     .map((data) => (
-                      <Box
-                        sx={{
-                          backgroundColor:
-                            data.username === username
-                              ? "yellow"
-                              : "light blue",
-                          textAlign:
-                            data.username === username ? "right" : "left",
-                          scrollBehavior: "smooth",
-                        }}
-                        marginTop="1rem"
-                      >
-                        {data.message} by {data.username}
-                      </Box>
+                      <ChatBubble key={data.timestamp}>
+                        {" "}
+                        <Typography>{data.username}</Typography>
+                        <Typography sx={{ wordBreak: "break-word" }}>
+                          {data.message}
+                        </Typography>
+                        <Typography>
+                          {" "}
+                          {new Date(
+                            parseInt(data.timestamp)
+                          ).toLocaleTimeString()}
+                        </Typography>
+                      </ChatBubble>
+                      // <Box
+                      //   sx={{
+                      //     backgroundColor:
+                      //       data.username === username
+                      //         ? "yellow"
+                      //         : "light blue",
+                      //     textAlign:
+                      //       data.username === username ? "right" : "left",
+                      //   }}
+                      //   marginTop="1rem"
+                      // >
+                      //   {data.message} by {data.username}
+                      // </Box>
                     ))
                 : null}
             </Box>
@@ -165,6 +233,16 @@ const Home = () => {
                 onChange={(e) => setMessage(e.target.value)}
                 label="Message"
                 sx={{ flexGrow: 1 }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    Socket.emit("send-message", {
+                      message: message,
+                      username: username,
+                      chatroom: currentRoom,
+                      timestamp: JSON.stringify(Date.now()),
+                    });
+                  }
+                }}
               />
 
               <Button
@@ -173,11 +251,8 @@ const Home = () => {
                     message: message,
                     username: username,
                     chatroom: currentRoom,
+                    timestamp: JSON.stringify(Date.now()),
                   });
-                  // if (chatContainer.current) {
-                  //   chatContainer.current.scrollTop =
-                  //     chatContainer.current.scrollHeight;
-                  // }
                 }}
                 variant="contained"
               >
