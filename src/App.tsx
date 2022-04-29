@@ -6,8 +6,8 @@ import {
   Navigate,
 } from "react-router-dom";
 
-import Auth from "./Pages/Auth/Auth";
-import Home from "./Pages/Home/Home";
+import Auth from "./pages/Auth/Auth";
+import Home from "./pages/Home/Home";
 function App() {
   return (
     <div>
