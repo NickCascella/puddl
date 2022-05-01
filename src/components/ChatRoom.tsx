@@ -10,6 +10,10 @@ import { useState } from "react";
 import Socket from "../utils/socket";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SendOutlinedIcon from "@mui/icons-material/SendOutlined";
+import CreateOutlinedIcon from "@mui/icons-material/CreateOutlined";
+import RoomPreferencesIcon from "@mui/icons-material/RoomPreferences";
+import RoomSettingsScreen from "./RoomSettingsScreen";
+import { InputAdornment } from "@mui/material";
 
 interface ReceivedMessage {
   message: string;
@@ -20,6 +24,7 @@ interface ReceivedMessage {
 
 interface ChatroomInterface {
   currentRoom: string;
+  userList: { joinedRoom: string; chatUsers: string[] }[];
   username: string;
   chatContainer: React.RefObject<HTMLDivElement>;
   showChatroom: boolean;
@@ -33,10 +38,20 @@ const ChatBubble = styled("div")({
   backgroundColor: "blue",
   padding: "0.5rem",
   borderRadius: 4,
-  position: "relative",
   marginBottom: "1rem",
   maxWidth: "70%",
   width: "max-content",
+});
+
+const ServerMessage = styled("div")({
+  color: "white",
+  backgroundColor: "grey",
+  padding: "0.5rem",
+  borderRadius: 4,
+  margin: "0 auto",
+  marginBottom: "1rem",
+  textAlign: "center",
+  width: "70%",
 });
 
 const displayChatroom = keyframes`
@@ -57,9 +72,11 @@ const Chatroom = ({
   setShowChatroom,
   updateView,
   setUpdateView,
+  userList,
 }: ChatroomInterface) => {
   const [message, setMessage] = useState("");
   const [allMessages, setAllMessages] = useState<Array<ReceivedMessage>>([]);
+  const [showRoomSettings, setShowRoomSettings] = useState(false);
 
   Socket.on("display-message", (data: ReceivedMessage) => {
     let chatMessages = [...allMessages];
@@ -79,17 +96,16 @@ const Chatroom = ({
     });
     setMessage("");
   };
-
   return (
     <Box
       display="flex"
       flexDirection="column"
-      justifyContent="flex-end"
       width="75%"
       padding="1rem 1rem 2rem"
       boxSizing="border-box"
+      position="relative"
       sx={{
-        border: "2px solid black",
+        border: "2px solid rgb(202, 203, 204)",
         borderLeft: "none",
         ["@media (max-width:850px)"]: {
           position: "absolute",
@@ -105,7 +121,10 @@ const Chatroom = ({
     >
       <Box display="flex">
         <Button
-          onClick={() => setShowChatroom(!showChatroom)}
+          onClick={() => {
+            setShowChatroom(!showChatroom);
+            setShowRoomSettings(false);
+          }}
           startIcon={<ArrowBackIcon />}
           sx={{
             display: "none",
@@ -115,74 +134,120 @@ const Chatroom = ({
             },
           }}
         ></Button>
-        <Typography marginBottom="auto" variant="h4" component="h2">
-          {currentRoom}
-        </Typography>
+        <Box
+          display="flex"
+          justifyContent="space-between"
+          alignItems="center"
+          width="100%"
+        >
+          <Typography marginBottom="auto" variant="h4" component="h2">
+            {currentRoom}
+          </Typography>{" "}
+          <Button
+            onClick={() => setShowRoomSettings(!showRoomSettings)}
+            variant="contained"
+            endIcon={<RoomPreferencesIcon />}
+          >
+            Room settings
+          </Button>
+        </Box>
       </Box>
       <Box
-        overflow="auto"
-        padding="1rem 0"
-        boxSizing="border-box"
-        ref={chatContainer}
-        height="80%"
-        sx={{
-          scrollBehavior: "smooth",
-          margin: "auto 0",
-        }}
+        display="flex"
+        flexDirection="column"
+        justifyContent="flex-end"
+        width="100%"
+        height="100%"
+        position="relative"
       >
-        {allMessages.length
-          ? allMessages
-              .filter((data) => data.chatroom === currentRoom)
-              .map((data) => (
-                <ChatBubble
-                  key={data.timestamp}
-                  sx={{
-                    marginLeft: data.username === username ? "0" : "auto",
-                    backgroundColor:
-                      data.username === username ? "blue" : "green",
-                  }}
-                >
-                  {" "}
-                  <Typography>{data.username}</Typography>
-                  <Typography
-                    sx={{
-                      wordBreak: "break-word",
-                      wordWrap: "break-word",
-                    }}
-                  >
-                    {data.message}
-                  </Typography>
-                  <Typography>
-                    {" "}
-                    {new Date(parseInt(data.timestamp)).toLocaleTimeString()}
-                  </Typography>
-                </ChatBubble>
-              ))
-          : null}
-      </Box>
-      <Box display="flex">
-        <TextField
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          label="Message"
-          fullWidth={true}
-          sx={{ marginRight: "2rem" }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              sendMessage();
-            }
+        {showRoomSettings && (
+          <RoomSettingsScreen
+            userList={userList}
+            currentRoom={currentRoom}
+            username={username}
+            setShowChatroom={setShowChatroom}
+          />
+        )}
+        <Box
+          overflow="auto"
+          padding="0.5rem 0"
+          boxSizing="border-box"
+          ref={chatContainer}
+          height="80%"
+          sx={{
+            scrollBehavior: "smooth",
+            margin: "auto 0",
           }}
-        />
-
-        <Button
-          onClick={() => {
-            sendMessage();
-          }}
-          variant="contained"
-          endIcon={<SendOutlinedIcon />}
         >
-          Send
-        </Button>
+          {allMessages.length
+            ? allMessages
+                .filter((data) => data.chatroom === currentRoom)
+                .map((data) => (
+                  <>
+                    {data.username === "Puddl" ? (
+                      <ServerMessage key={data.timestamp}>
+                        {data.message}
+                      </ServerMessage>
+                    ) : (
+                      <ChatBubble
+                        key={data.timestamp}
+                        sx={{
+                          marginLeft: data.username === username ? "0" : "auto",
+                          backgroundColor:
+                            data.username === username ? "blue" : "green",
+                        }}
+                      >
+                        <Typography>{data.username}</Typography>
+                        <Typography
+                          sx={{
+                            wordBreak: "break-word",
+                            wordWrap: "break-word",
+                          }}
+                        >
+                          {data.message}
+                        </Typography>
+                        <Typography>
+                          {new Date(
+                            parseInt(data.timestamp)
+                          ).toLocaleTimeString()}
+                        </Typography>
+                      </ChatBubble>
+                    )}
+                  </>
+                ))
+            : null}
+        </Box>
+        <Box display="flex">
+          <TextField
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            label="Message"
+            fullWidth={true}
+            sx={{ marginRight: "2rem" }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                sendMessage();
+              }
+            }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <CreateOutlinedIcon />
+                </InputAdornment>
+              ),
+            }}
+          />
+
+          <Button
+            onClick={() => {
+              sendMessage();
+            }}
+            variant="contained"
+            endIcon={<SendOutlinedIcon />}
+          >
+            Send
+          </Button>
+        </Box>
       </Box>
     </Box>
   );

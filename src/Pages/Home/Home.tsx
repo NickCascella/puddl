@@ -19,11 +19,13 @@ interface NoToken {
 const Home = () => {
   const navigate = useNavigate();
   const chatContainer = useRef<HTMLDivElement>(null);
+
   const [username, setUsername] = useState("");
   const [currentRoom, setCurrentRoom] = useState("Global");
   const [createRoom, setCreateRoom] = useState("Global");
-  const [chatUserTracker, setChatUserTracker] = useState([]);
-  const [joinedRoom, setJoinedRooms] = useState<string[]>([]);
+  const [joinedRoom, setJoinedRooms] = useState<
+    { joinedRoom: string; chatUsers: string[] }[]
+  >([]);
   const [updateView, setUpdateView] = useState(true);
   const [showChatroom, setShowChatroom] = useState(false);
 
@@ -36,6 +38,7 @@ const Home = () => {
         return;
       }
       setUsername(response.user);
+      Socket.connect();
     };
     verifyUser();
   }, []);
@@ -52,23 +55,61 @@ const Home = () => {
 
   //functions
 
-  const joinRoom = () => {
+  const joinRoom = async () => {
     if (
       createRoom.length < 1 ||
       createRoom.length > 15 ||
-      joinedRoom.includes(createRoom) ||
-      !username
+      !username ||
+      joinedRoom.filter((room) => room.joinedRoom === createRoom).length
     ) {
       return;
     }
-    Socket.emit("join-room", { chatroom: createRoom, username: username });
-    setCurrentRoom(createRoom);
-    setCreateRoom("");
+    Socket.emit("join-room", {
+      chatroom: createRoom,
+      username: username,
+      timestamp: JSON.stringify(Date.now()),
+    });
   };
+
   Socket.on("joined-room", (data) => {
     let joinedRoomsNew = [...joinedRoom];
-    joinedRoomsNew.push(data.joinedRoom);
+    let checkUpdateGroup = joinedRoomsNew.filter(
+      (room) => room.joinedRoom === data.joinedRoom
+    );
+    if (checkUpdateGroup.length) {
+      joinedRoomsNew = joinedRoomsNew.map((room) =>
+        room.joinedRoom === data.joinedRoom ? data : room
+      );
+    } else {
+      joinedRoomsNew.push(data);
+    }
     setJoinedRooms(joinedRoomsNew);
+    setCurrentRoom(data.joinedRoom);
+    setCreateRoom("");
+  });
+
+  Socket.on("left-chat", (data) => {
+    let myChats = joinedRoom.filter(
+      (room) => room.joinedRoom !== data.chatroom
+    );
+    setCurrentRoom("Global");
+    setJoinedRooms(myChats);
+  });
+
+  Socket.on("other-user-left", (data) => {
+    let myChats = [...joinedRoom];
+    let chatIndex = myChats.findIndex(
+      (room) => room.joinedRoom === data.joinedRoom
+    );
+    let updatedChat = myChats.find((room) => room.joinedRoom === data.chatroom);
+    if (updatedChat) {
+      updatedChat.chatUsers = updatedChat.chatUsers.filter(
+        (user) => user !== data.username
+      );
+      myChats[chatIndex] = updatedChat;
+      setJoinedRooms(myChats);
+      setCurrentRoom(data.chatroom);
+    }
   });
 
   if (!username) {
@@ -100,6 +141,7 @@ const Home = () => {
         />
         <Chatroom
           currentRoom={currentRoom}
+          userList={joinedRoom}
           username={username}
           chatContainer={chatContainer}
           showChatroom={showChatroom}

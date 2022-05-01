@@ -1,2 +1,3 @@
 import { io } from "socket.io-client";
-export default io("ws://localhost:8080");
+const socket = io("ws://localhost:8080");
+export default socket;

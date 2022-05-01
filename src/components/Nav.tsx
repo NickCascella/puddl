@@ -1,4 +1,4 @@
-import { Typography, Button, Box, keyframes, TextField } from "@mui/material";
+import { Button, Box, keyframes, TextField, Typography } from "@mui/material";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import InputAdornment from "@mui/material/InputAdornment";
@@ -6,12 +6,14 @@ import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
 import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
 import CreateOutlinedIcon from "@mui/icons-material/CreateOutlined";
 import PersonAddAltOutlinedIcon from "@mui/icons-material/PersonAddAltOutlined";
+import MeetingRoomOutlinedIcon from "@mui/icons-material/MeetingRoomOutlined";
+import Socket from "../utils/socket";
 
 interface NavInterface {
   createRoom: string;
   setCreateRoom: (value: React.SetStateAction<string>) => void;
   setCurrentRoom: (value: React.SetStateAction<string>) => void;
-  joinedRoom: string[];
+  joinedRoom: { joinedRoom: string; chatUsers: string[] }[];
   updateView: boolean;
   setUpdateView: (value: React.SetStateAction<boolean>) => void;
   showChatroom: boolean;
@@ -51,7 +53,7 @@ const Nav = ({
       width="25%"
       height="100vh"
       sx={{
-        border: "2px solid black",
+        border: "1px solid rgb(202, 203, 204)",
         ["@media (max-width:850px)"]: {
           width: "100%",
           animation: `${
@@ -86,9 +88,9 @@ const Nav = ({
           Join
         </Button>
       </Box>
-      {/* <Typography variant="h4" component="h2">
+      <Typography variant="h4" component="h2" marginTop="1rem">
         Rooms
-      </Typography> */}
+      </Typography>
       <TextField
         sx={{ marginTop: "1rem" }}
         label="Search Rooms"
@@ -102,29 +104,39 @@ const Nav = ({
           ),
         }}
       />
-      <Box height="60%" overflow="auto">
+      <Box
+        height="60%"
+        overflow="auto"
+        marginTop="1rem"
+        border="1px solid rgb(202, 203, 204)"
+        borderRadius="3px"
+      >
         {joinedRoom
           .filter((room) =>
-            room.toLowerCase().includes(filterRooms.toLowerCase())
+            room.joinedRoom.toLowerCase().includes(filterRooms.toLowerCase())
           )
           .map((room) => (
             <Box
-              width="90%"
-              key={room}
+              width="100%"
+              key={room.joinedRoom}
               sx={{
                 padding: "1rem",
-                borderBottom: "1px solid black",
+                boxSizing: "border-box",
+                display: "flex",
+                alignItems: "center",
+                borderBottom: "1px solid rgb(202, 203, 204)",
                 ":hover": {
                   cursor: "pointer",
                 },
               }}
               onClick={() => {
-                setCurrentRoom(room);
+                setCurrentRoom(room.joinedRoom);
                 setUpdateView(!updateView);
                 setShowChatroom(!showChatroom);
               }}
             >
-              {room}
+              <MeetingRoomOutlinedIcon sx={{ marginRight: "0.5rem" }} />{" "}
+              {room.joinedRoom}
             </Box>
           ))}
       </Box>
@@ -132,6 +144,7 @@ const Nav = ({
         variant="contained"
         onClick={() => {
           sessionStorage.removeItem("token");
+          Socket.disconnect();
           navigate("/login");
         }}
         sx={{ marginTop: "auto", width: "max-content" }}
