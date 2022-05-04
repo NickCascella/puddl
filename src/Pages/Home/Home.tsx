@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import requests from "../../utils/requests";
-// import Socket from "../../utils/socket";
 import Io from "../../utils/socket";
 import { Box } from "@mui/material";
 import Nav from "../../components/Nav";
@@ -57,7 +56,9 @@ const Home = () => {
   }, []);
 
   useEffect(() => {
-    joinRoom();
+    if (username) {
+      joinRoom();
+    }
   }, [username]);
 
   useEffect(() => {
@@ -74,7 +75,6 @@ const Home = () => {
       }[]
     ) => {
       setChatrooms(data);
-      console.log("hi");
       Io.socket.emit("retrieve-prior-messages", {
         chatrooms: data.map((room) => room.joinedRoom),
       });
@@ -100,19 +100,74 @@ const Home = () => {
       setChatrooms(joinedRoomsNew);
       setCurrentRoom(data.joinedRoom);
       setCreateRoom("");
+
+      console.log(username, "user");
+
+      if (data.username === username || username === "") {
+        Io.socket.emit("send-message", {
+          message: `${data.username} has joined ${data.joinedRoom}!`,
+          username: "Puddl",
+          chatroom: data.joinedRoom,
+          timestamp: JSON.stringify(Date.now()),
+        });
+      }
       Io.socket.emit("retrieve-prior-messages", {
         chatrooms: [data.joinedRoom],
       });
     };
 
+    const leftChat = (data: any) => {
+      let myChats = chatrooms.filter(
+        (room) => room.joinedRoom !== data.chatroom
+      );
+      setCurrentRoom("Global");
+      setChatrooms(myChats);
+    };
+
+    const otherUserLeftChat = (data: any) => {
+      let myChats = [...chatrooms];
+      let chatIndex = myChats.findIndex(
+        (room) => room.joinedRoom === data.joinedRoom
+      );
+      let updatedChat = myChats.find(
+        (room) => room.joinedRoom === data.chatroom
+      );
+      if (updatedChat) {
+        updatedChat.chatUsers = updatedChat.chatUsers.filter(
+          (user) => user.username !== data.username
+        );
+        myChats[chatIndex] = updatedChat;
+        setCurrentRoom(data.chatroom);
+        setChatrooms(myChats);
+      }
+    };
+
+    const otherUserStatus = (data: any) => {
+      let myChats = [...chatrooms];
+      myChats.forEach((chat) => {
+        chat.chatUsers.forEach((user) => {
+          if (user.username === data.username) {
+            user.online = data.online;
+          }
+        });
+      });
+      setChatrooms(myChats);
+    };
+
     Io.socket.on("retrieved-prior-messages", retrievedPriorMessages);
     Io.socket.on("fetch-user-chat", fetchUserChat);
     Io.socket.on("joined-room", joinedRoom);
+    Io.socket.on("left-chat", leftChat);
+    Io.socket.on("other-user-left", otherUserLeftChat);
+    Io.socket.on("other-user-status", otherUserStatus);
 
     return () => {
       Io.socket.off("fetch-user-chat", fetchUserChat);
       Io.socket.off("retrieved-prior-messages", retrievedPriorMessages);
       Io.socket.off("joined-room", joinedRoom);
+      Io.socket.off("left-chat", leftChat);
+      Io.socket.off("other-user-left", otherUserLeftChat);
+      Io.socket.off("other-user-status", otherUserStatus);
     };
   }, [chatrooms, allMessages]);
 
@@ -120,8 +175,9 @@ const Home = () => {
     if (
       createRoom.length < 1 ||
       createRoom.length > 15 ||
-      !username ||
-      chatrooms.filter((room) => room.joinedRoom === createRoom).length
+      !username
+      // ||
+      // chatrooms.filter((room) => room.joinedRoom === createRoom).length
     ) {
       return;
     }
@@ -131,53 +187,6 @@ const Home = () => {
       timestamp: JSON.stringify(Date.now()),
     });
   };
-
-  Io.socket.on("left-chat", (data: any) => {
-    let myChats = chatrooms.filter((room) => room.joinedRoom !== data.chatroom);
-    setCurrentRoom("Global");
-    setChatrooms(myChats);
-  });
-
-  Io.socket.on("other-user-left", (data: any) => {
-    let myChats = [...chatrooms];
-    let chatIndex = myChats.findIndex(
-      (room) => room.joinedRoom === data.joinedRoom
-    );
-    let updatedChat = myChats.find((room) => room.joinedRoom === data.chatroom);
-    if (updatedChat) {
-      updatedChat.chatUsers = updatedChat.chatUsers.filter(
-        (user) => user.username !== data.username
-      );
-      myChats[chatIndex] = updatedChat;
-      setChatrooms(myChats);
-      setCurrentRoom(data.chatroom);
-    }
-  });
-
-  Io.socket.on("other-user-offline", (data: any) => {
-    let myChats = [...chatrooms];
-    myChats.forEach((chat) => {
-      chat.chatUsers.forEach((user) => {
-        if (user.username === data.username) {
-          user.online = false;
-        }
-      });
-    });
-    setChatrooms(myChats);
-  });
-
-  Io.socket.on("other-user-online", (data: any) => {
-    let myChats = [...chatrooms];
-
-    myChats.forEach((chat) => {
-      chat.chatUsers.forEach((user) => {
-        if (user.username === data.username) {
-          user.online = true;
-        }
-      });
-    });
-    setChatrooms(myChats);
-  });
 
   if (!username) {
     return <div>Loading...</div>;
