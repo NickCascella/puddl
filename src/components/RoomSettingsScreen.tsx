@@ -1,22 +1,26 @@
 import { Typography, Button } from "@mui/material";
 import { Box } from "@mui/system";
-import socket from "../utils/socket";
+// import socket from "../utils/socket";
+import Io from "../utils/socket";
 
 interface RoomSettingsScreenInterface {
   currentRoom: string;
-  userList: { joinedRoom: string; chatUsers: string[] }[];
+  chatrooms: {
+    joinedRoom: string;
+    chatUsers: { username: string; online: boolean }[];
+  }[];
   username: string;
   setShowChatroom: (value: React.SetStateAction<boolean>) => void;
 }
 
 const RoomSettingsScreen = ({
-  userList,
+  chatrooms,
   currentRoom,
   username,
   setShowChatroom,
 }: RoomSettingsScreenInterface) => {
   const leaveChat = () => {
-    socket.emit("leave-chat", {
+    Io.socket.emit("leave-chat", {
       username: username,
       chatroom: currentRoom,
     });
@@ -36,11 +40,18 @@ const RoomSettingsScreen = ({
       }}
     >
       <Typography>Users:</Typography>
-      {userList.length &&
+      {chatrooms.length &&
         currentRoom &&
-        userList
+        chatrooms
           .filter((room) => room.joinedRoom === currentRoom)[0]
-          .chatUsers.map((user) => <Typography key={user}>{user}</Typography>)}
+          .chatUsers.map((user) => (
+            <Box key={user.username} display="flex">
+              <Typography marginRight="1rem">
+                {user.online ? "Online" : "Offline"}
+              </Typography>
+              <Typography>{user.username}</Typography>
+            </Box>
+          ))}
       {currentRoom !== "Global" && (
         <Button onClick={leaveChat}>Leave Chat</Button>
       )}

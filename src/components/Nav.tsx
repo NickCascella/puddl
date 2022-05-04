@@ -7,13 +7,17 @@ import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
 import CreateOutlinedIcon from "@mui/icons-material/CreateOutlined";
 import PersonAddAltOutlinedIcon from "@mui/icons-material/PersonAddAltOutlined";
 import MeetingRoomOutlinedIcon from "@mui/icons-material/MeetingRoomOutlined";
-import Socket from "../utils/socket";
+// import Socket from "../utils/socket";
+import Io from "../utils/socket";
 
 interface NavInterface {
   createRoom: string;
   setCreateRoom: (value: React.SetStateAction<string>) => void;
   setCurrentRoom: (value: React.SetStateAction<string>) => void;
-  joinedRoom: { joinedRoom: string; chatUsers: string[] }[];
+  chatrooms: {
+    joinedRoom: string;
+    chatUsers: { username: string; online: boolean }[];
+  }[];
   updateView: boolean;
   setUpdateView: (value: React.SetStateAction<boolean>) => void;
   showChatroom: boolean;
@@ -35,7 +39,7 @@ const Nav = ({
   createRoom,
   setCreateRoom,
   setCurrentRoom,
-  joinedRoom,
+  chatrooms,
   updateView,
   setUpdateView,
   setShowChatroom,
@@ -111,7 +115,7 @@ const Nav = ({
         border="1px solid rgb(202, 203, 204)"
         borderRadius="3px"
       >
-        {joinedRoom
+        {chatrooms
           .filter((room) =>
             room.joinedRoom.toLowerCase().includes(filterRooms.toLowerCase())
           )
@@ -144,7 +148,8 @@ const Nav = ({
         variant="contained"
         onClick={() => {
           sessionStorage.removeItem("token");
-          Socket.disconnect();
+          Io.socket.emit("disconnet", { message: "offline" });
+          Io.socket.disconnect();
           navigate("/login");
         }}
         sx={{ marginTop: "auto", width: "max-content" }}

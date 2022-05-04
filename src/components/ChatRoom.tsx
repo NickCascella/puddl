@@ -7,7 +7,8 @@ import {
   styled,
 } from "@mui/material";
 import { useState } from "react";
-import Socket from "../utils/socket";
+// import Socket from "../utils/socket";
+import Io from "../utils/socket";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SendOutlinedIcon from "@mui/icons-material/SendOutlined";
 import CreateOutlinedIcon from "@mui/icons-material/CreateOutlined";
@@ -24,13 +25,18 @@ interface ReceivedMessage {
 
 interface ChatroomInterface {
   currentRoom: string;
-  userList: { joinedRoom: string; chatUsers: string[] }[];
+  chatrooms: {
+    joinedRoom: string;
+    chatUsers: { username: string; online: boolean }[];
+  }[];
   username: string;
   chatContainer: React.RefObject<HTMLDivElement>;
   showChatroom: boolean;
   setShowChatroom: (value: React.SetStateAction<boolean>) => void;
   updateView: boolean;
   setUpdateView: (value: React.SetStateAction<boolean>) => void;
+  allMessages: ReceivedMessage[];
+  setAllMessages: React.Dispatch<React.SetStateAction<ReceivedMessage[]>>;
 }
 
 const ChatBubble = styled("div")({
@@ -72,13 +78,14 @@ const Chatroom = ({
   setShowChatroom,
   updateView,
   setUpdateView,
-  userList,
+  chatrooms,
+  allMessages,
+  setAllMessages,
 }: ChatroomInterface) => {
   const [message, setMessage] = useState("");
-  const [allMessages, setAllMessages] = useState<Array<ReceivedMessage>>([]);
   const [showRoomSettings, setShowRoomSettings] = useState(false);
 
-  Socket.on("display-message", (data: ReceivedMessage) => {
+  Io.socket.on("display-message", (data: ReceivedMessage) => {
     let chatMessages = [...allMessages];
     chatMessages.push(data);
     setAllMessages(chatMessages);
@@ -88,7 +95,7 @@ const Chatroom = ({
   });
 
   const sendMessage = () => {
-    Socket.emit("send-message", {
+    Io.socket.emit("send-message", {
       message: message,
       username: username,
       chatroom: currentRoom,
@@ -162,7 +169,7 @@ const Chatroom = ({
       >
         {showRoomSettings && (
           <RoomSettingsScreen
-            userList={userList}
+            chatrooms={chatrooms}
             currentRoom={currentRoom}
             username={username}
             setShowChatroom={setShowChatroom}
@@ -183,14 +190,11 @@ const Chatroom = ({
             ? allMessages
                 .filter((data) => data.chatroom === currentRoom)
                 .map((data) => (
-                  <>
+                  <Box key={data.timestamp}>
                     {data.username === "Puddl" ? (
-                      <ServerMessage key={data.timestamp}>
-                        {data.message}
-                      </ServerMessage>
+                      <ServerMessage>{data.message}</ServerMessage>
                     ) : (
                       <ChatBubble
-                        key={data.timestamp}
                         sx={{
                           marginLeft: data.username === username ? "0" : "auto",
                           backgroundColor:
@@ -213,7 +217,7 @@ const Chatroom = ({
                         </Typography>
                       </ChatBubble>
                     )}
-                  </>
+                  </Box>
                 ))
             : null}
         </Box>

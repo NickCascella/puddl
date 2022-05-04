@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import requests from "../../utils/requests";
-import Socket from "../../utils/socket";
+// import Socket from "../../utils/socket";
+import Io from "../../utils/socket";
 import { Box } from "@mui/material";
 import Nav from "../../components/Nav";
 import Chatroom from "../../components/ChatRoom";
@@ -16,6 +17,13 @@ interface NoToken {
   error: string;
 }
 
+interface ReceivedMessage {
+  message: string;
+  username: string;
+  chatroom: string;
+  timestamp: string;
+}
+
 const Home = () => {
   const navigate = useNavigate();
   const chatContainer = useRef<HTMLDivElement>(null);
@@ -23,11 +31,12 @@ const Home = () => {
   const [username, setUsername] = useState("");
   const [currentRoom, setCurrentRoom] = useState("Global");
   const [createRoom, setCreateRoom] = useState("Global");
-  const [joinedRoom, setJoinedRooms] = useState<
-    { joinedRoom: string; chatUsers: string[] }[]
+  const [chatrooms, setChatrooms] = useState<
+    { joinedRoom: string; chatUsers: { username: string; online: boolean }[] }[]
   >([]);
   const [updateView, setUpdateView] = useState(true);
   const [showChatroom, setShowChatroom] = useState(false);
+  const [allMessages, setAllMessages] = useState<Array<ReceivedMessage>>([]);
 
   useEffect(() => {
     const verifyUser = async () => {
@@ -37,8 +46,12 @@ const Home = () => {
         navigate("/login");
         return;
       }
+
       setUsername(response.user);
-      Socket.connect();
+      Io.socket.connect();
+      Io.socket.emit("online", {
+        username: response.user,
+      });
     };
     verifyUser();
   }, []);
@@ -53,63 +66,117 @@ const Home = () => {
     }
   }, [updateView]);
 
-  //functions
+  useEffect(() => {
+    const fetchUserChat = (
+      data: {
+        joinedRoom: string;
+        chatUsers: { username: string; online: boolean }[];
+      }[]
+    ) => {
+      setChatrooms(data);
+      console.log("hi");
+      Io.socket.emit("retrieve-prior-messages", {
+        chatrooms: data.map((room) => room.joinedRoom),
+      });
+    };
 
-  const joinRoom = async () => {
+    const retrievedPriorMessages = (data: any) => {
+      setAllMessages(data.allMessages);
+      setUpdateView(!updateView);
+    };
+
+    const joinedRoom = (data: any) => {
+      let joinedRoomsNew = [...chatrooms];
+      let checkUpdateGroup = joinedRoomsNew.filter(
+        (room) => room.joinedRoom === data.joinedRoom
+      );
+      if (checkUpdateGroup.length) {
+        joinedRoomsNew = joinedRoomsNew.map((room) =>
+          room.joinedRoom === data.joinedRoom ? data : room
+        );
+      } else {
+        joinedRoomsNew.push(data);
+      }
+      setChatrooms(joinedRoomsNew);
+      setCurrentRoom(data.joinedRoom);
+      setCreateRoom("");
+      Io.socket.emit("retrieve-prior-messages", {
+        chatrooms: [data.joinedRoom],
+      });
+    };
+
+    Io.socket.on("retrieved-prior-messages", retrievedPriorMessages);
+    Io.socket.on("fetch-user-chat", fetchUserChat);
+    Io.socket.on("joined-room", joinedRoom);
+
+    return () => {
+      Io.socket.off("fetch-user-chat", fetchUserChat);
+      Io.socket.off("retrieved-prior-messages", retrievedPriorMessages);
+      Io.socket.off("joined-room", joinedRoom);
+    };
+  }, [chatrooms, allMessages]);
+
+  const joinRoom = () => {
     if (
       createRoom.length < 1 ||
       createRoom.length > 15 ||
       !username ||
-      joinedRoom.filter((room) => room.joinedRoom === createRoom).length
+      chatrooms.filter((room) => room.joinedRoom === createRoom).length
     ) {
       return;
     }
-    Socket.emit("join-room", {
+    Io.socket.emit("join-room", {
       chatroom: createRoom,
       username: username,
       timestamp: JSON.stringify(Date.now()),
     });
   };
 
-  Socket.on("joined-room", (data) => {
-    let joinedRoomsNew = [...joinedRoom];
-    let checkUpdateGroup = joinedRoomsNew.filter(
-      (room) => room.joinedRoom === data.joinedRoom
-    );
-    if (checkUpdateGroup.length) {
-      joinedRoomsNew = joinedRoomsNew.map((room) =>
-        room.joinedRoom === data.joinedRoom ? data : room
-      );
-    } else {
-      joinedRoomsNew.push(data);
-    }
-    setJoinedRooms(joinedRoomsNew);
-    setCurrentRoom(data.joinedRoom);
-    setCreateRoom("");
-  });
-
-  Socket.on("left-chat", (data) => {
-    let myChats = joinedRoom.filter(
-      (room) => room.joinedRoom !== data.chatroom
-    );
+  Io.socket.on("left-chat", (data: any) => {
+    let myChats = chatrooms.filter((room) => room.joinedRoom !== data.chatroom);
     setCurrentRoom("Global");
-    setJoinedRooms(myChats);
+    setChatrooms(myChats);
   });
 
-  Socket.on("other-user-left", (data) => {
-    let myChats = [...joinedRoom];
+  Io.socket.on("other-user-left", (data: any) => {
+    let myChats = [...chatrooms];
     let chatIndex = myChats.findIndex(
       (room) => room.joinedRoom === data.joinedRoom
     );
     let updatedChat = myChats.find((room) => room.joinedRoom === data.chatroom);
     if (updatedChat) {
       updatedChat.chatUsers = updatedChat.chatUsers.filter(
-        (user) => user !== data.username
+        (user) => user.username !== data.username
       );
       myChats[chatIndex] = updatedChat;
-      setJoinedRooms(myChats);
+      setChatrooms(myChats);
       setCurrentRoom(data.chatroom);
     }
+  });
+
+  Io.socket.on("other-user-offline", (data: any) => {
+    let myChats = [...chatrooms];
+    myChats.forEach((chat) => {
+      chat.chatUsers.forEach((user) => {
+        if (user.username === data.username) {
+          user.online = false;
+        }
+      });
+    });
+    setChatrooms(myChats);
+  });
+
+  Io.socket.on("other-user-online", (data: any) => {
+    let myChats = [...chatrooms];
+
+    myChats.forEach((chat) => {
+      chat.chatUsers.forEach((user) => {
+        if (user.username === data.username) {
+          user.online = true;
+        }
+      });
+    });
+    setChatrooms(myChats);
   });
 
   if (!username) {
@@ -132,7 +199,7 @@ const Home = () => {
           createRoom={createRoom}
           setCreateRoom={setCreateRoom}
           setCurrentRoom={setCurrentRoom}
-          joinedRoom={joinedRoom}
+          chatrooms={chatrooms}
           updateView={updateView}
           setUpdateView={setUpdateView}
           setShowChatroom={setShowChatroom}
@@ -141,13 +208,15 @@ const Home = () => {
         />
         <Chatroom
           currentRoom={currentRoom}
-          userList={joinedRoom}
+          chatrooms={chatrooms}
           username={username}
           chatContainer={chatContainer}
           showChatroom={showChatroom}
           setShowChatroom={setShowChatroom}
           updateView={updateView}
           setUpdateView={setUpdateView}
+          allMessages={allMessages}
+          setAllMessages={setAllMessages}
         />
       </Box>
     </Box>
