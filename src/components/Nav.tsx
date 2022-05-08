@@ -7,8 +7,8 @@ import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
 import CreateOutlinedIcon from "@mui/icons-material/CreateOutlined";
 import PersonAddAltOutlinedIcon from "@mui/icons-material/PersonAddAltOutlined";
 import MeetingRoomOutlinedIcon from "@mui/icons-material/MeetingRoomOutlined";
-// import Socket from "../utils/socket";
 import Io from "../utils/socket";
+import myTheme from "../common/theme";
 
 interface NavInterface {
   createRoom: string;
@@ -23,6 +23,7 @@ interface NavInterface {
   showChatroom: boolean;
   setShowChatroom: (value: React.SetStateAction<boolean>) => void;
   joinRoom: () => void;
+  setShowRoomSettings: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const hideChatsList = keyframes`
@@ -45,6 +46,7 @@ const Nav = ({
   setShowChatroom,
   showChatroom,
   joinRoom,
+  setShowRoomSettings,
 }: NavInterface) => {
   const navigate = useNavigate();
   const [filterRooms, setFilterRooms] = useState("");
@@ -55,9 +57,9 @@ const Nav = ({
       flexDirection="column"
       minWidth="max-content"
       width="25%"
-      height="100vh"
+      height="100%"
       sx={{
-        border: "1px solid rgb(202, 203, 204)",
+        border: `1px solid ${myTheme.palette.primary.light}`,
         ["@media (max-width:850px)"]: {
           width: "100%",
           animation: `${
@@ -68,6 +70,9 @@ const Nav = ({
       padding="1rem 1rem"
       boxSizing="border-box"
     >
+      <Typography variant="h4" component="h2" marginBottom="1rem">
+        Rooms
+      </Typography>
       <Box display="flex">
         <TextField
           label="Room ID"
@@ -82,6 +87,7 @@ const Nav = ({
               </InputAdornment>
             ),
           }}
+          variant="standard"
         />
 
         <Button
@@ -92,12 +98,9 @@ const Nav = ({
           Join
         </Button>
       </Box>
-      <Typography variant="h4" component="h2" marginTop="1rem">
-        Rooms
-      </Typography>
       <TextField
         sx={{ marginTop: "1rem" }}
-        label="Search Rooms"
+        label="Search My Rooms"
         value={filterRooms}
         onChange={(e) => setFilterRooms(e.target.value)}
         InputProps={{
@@ -107,13 +110,17 @@ const Nav = ({
             </InputAdornment>
           ),
         }}
+        variant="standard"
       />
       <Box
-        height="60%"
+        height="65.1%"
+        maxHeight="65.1%"
         overflow="auto"
         marginTop="1rem"
-        border="1px solid rgb(202, 203, 204)"
         borderRadius="3px"
+        sx={{
+          border: `1px solid ${myTheme.palette.primary.light}`,
+        }}
       >
         {chatrooms
           .filter((room) =>
@@ -128,7 +135,7 @@ const Nav = ({
                 boxSizing: "border-box",
                 display: "flex",
                 alignItems: "center",
-                borderBottom: "1px solid rgb(202, 203, 204)",
+                borderBottom: `1px solid ${myTheme.palette.primary.light}`,
                 ":hover": {
                   cursor: "pointer",
                 },
@@ -137,6 +144,7 @@ const Nav = ({
                 setCurrentRoom(room.joinedRoom);
                 setUpdateView(!updateView);
                 setShowChatroom(!showChatroom);
+                setShowRoomSettings(false);
               }}
             >
               <MeetingRoomOutlinedIcon sx={{ marginRight: "0.5rem" }} />{" "}
@@ -148,7 +156,7 @@ const Nav = ({
         variant="contained"
         onClick={() => {
           sessionStorage.removeItem("token");
-          Io.socket.emit("disconnet", { message: "offline" });
+          Io.socket.emit("offline", { message: "offline" });
           Io.socket.disconnect();
           navigate("/login");
         }}

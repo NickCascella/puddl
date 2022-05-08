@@ -5,37 +5,25 @@ import Io from "../../utils/socket";
 import { Box } from "@mui/material";
 import Nav from "../../components/Nav";
 import Chatroom from "../../components/ChatRoom";
-
-interface Token {
-  user: string;
-  iat: number;
-  exp: number;
-}
-
-interface NoToken {
-  error: string;
-}
-
-interface ReceivedMessage {
-  message: string;
-  username: string;
-  chatroom: string;
-  timestamp: string;
-}
+import {
+  Token,
+  NoToken,
+  ReceivedMessage,
+  ChatroomDataInterface,
+  priorMessages,
+} from "../../styles/globalTypes";
 
 const Home = () => {
   const navigate = useNavigate();
   const chatContainer = useRef<HTMLDivElement>(null);
-
   const [username, setUsername] = useState("");
   const [currentRoom, setCurrentRoom] = useState("Global");
   const [createRoom, setCreateRoom] = useState("Global");
-  const [chatrooms, setChatrooms] = useState<
-    { joinedRoom: string; chatUsers: { username: string; online: boolean }[] }[]
-  >([]);
+  const [chatrooms, setChatrooms] = useState<ChatroomDataInterface[]>([]);
   const [updateView, setUpdateView] = useState(true);
   const [showChatroom, setShowChatroom] = useState(false);
   const [allMessages, setAllMessages] = useState<Array<ReceivedMessage>>([]);
+  const [showRoomSettings, setShowRoomSettings] = useState(false);
 
   useEffect(() => {
     const verifyUser = async () => {
@@ -68,24 +56,21 @@ const Home = () => {
   }, [updateView]);
 
   useEffect(() => {
-    const fetchUserChat = (
-      data: {
-        joinedRoom: string;
-        chatUsers: { username: string; online: boolean }[];
-      }[]
-    ) => {
+    const fetchUserChat = (data: ChatroomDataInterface[]) => {
       setChatrooms(data);
       Io.socket.emit("retrieve-prior-messages", {
         chatrooms: data.map((room) => room.joinedRoom),
       });
     };
 
-    const retrievedPriorMessages = (data: any) => {
-      setAllMessages(data.allMessages);
+    const retrievedPriorMessages = (data: priorMessages) => {
+      let messages = [...allMessages];
+      let newMessageList = messages.concat(data.allMessages);
+      setAllMessages(newMessageList);
       setUpdateView(!updateView);
     };
 
-    const joinedRoom = (data: any) => {
+    const joinedRoom = (data: ChatroomDataInterface) => {
       let joinedRoomsNew = [...chatrooms];
       let checkUpdateGroup = joinedRoomsNew.filter(
         (room) => room.joinedRoom === data.joinedRoom
@@ -101,8 +86,6 @@ const Home = () => {
       setCurrentRoom(data.joinedRoom);
       setCreateRoom("");
 
-      console.log(username, "user");
-
       if (data.username === username || username === "") {
         Io.socket.emit("send-message", {
           message: `${data.username} has joined ${data.joinedRoom}!`,
@@ -116,7 +99,13 @@ const Home = () => {
       });
     };
 
-    const leftChat = (data: any) => {
+    const leftChat = (data: { username: string; chatroom: string }) => {
+      Io.socket.emit("send-message", {
+        message: `${data.username} has left ${data.chatroom}!`,
+        username: "Puddl",
+        chatroom: data.chatroom,
+        timestamp: JSON.stringify(Date.now()),
+      });
       let myChats = chatrooms.filter(
         (room) => room.joinedRoom !== data.chatroom
       );
@@ -175,10 +164,10 @@ const Home = () => {
     if (
       createRoom.length < 1 ||
       createRoom.length > 15 ||
-      !username
-      // ||
-      // chatrooms.filter((room) => room.joinedRoom === createRoom).length
+      !username ||
+      chatrooms.find((room) => room.joinedRoom === createRoom)
     ) {
+      console.log("NOT A VALID ROOM");
       return;
     }
     Io.socket.emit("join-room", {
@@ -214,6 +203,7 @@ const Home = () => {
           setShowChatroom={setShowChatroom}
           showChatroom={showChatroom}
           joinRoom={joinRoom}
+          setShowRoomSettings={setShowRoomSettings}
         />
         <Chatroom
           currentRoom={currentRoom}
@@ -226,6 +216,8 @@ const Home = () => {
           setUpdateView={setUpdateView}
           allMessages={allMessages}
           setAllMessages={setAllMessages}
+          showRoomSettings={showRoomSettings}
+          setShowRoomSettings={setShowRoomSettings}
         />
       </Box>
     </Box>

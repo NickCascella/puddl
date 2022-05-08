@@ -95,6 +95,7 @@ const Auth = () => {
           error={checkError("username")}
           helperText={renderErrors("username")}
           margin={"normal"}
+          variant="standard"
         />
         <TextField
           type="password"
@@ -104,8 +105,9 @@ const Auth = () => {
           error={checkError("password")}
           helperText={renderErrors("password")}
           margin={"normal"}
+          variant="standard"
         />
-        {location.pathname === "/signup" ? (
+        {location.pathname === "/signup" && (
           <TextField
             margin={"normal"}
             type="password"
@@ -114,8 +116,9 @@ const Auth = () => {
             onChange={(e) => setConfirmPassword(e.target.value)}
             error={checkError("confirmPassword")}
             helperText={renderErrors("confirmPassword")}
+            variant="standard"
           />
-        ) : null}
+        )}
         <Box display="flex" gap="1rem" marginTop="1rem">
           <Button type="submit" variant="contained">
             {location.pathname === "/login" ? "Login" : "Signup"}
