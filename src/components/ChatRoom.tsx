@@ -15,7 +15,6 @@ import RoomPreferencesIcon from "@mui/icons-material/RoomPreferences";
 import RoomSettingsScreen from "./RoomSettingsScreen";
 import { InputAdornment } from "@mui/material";
 import { ChatroomDataInterface, ReceivedMessage } from "../styles/globalTypes";
-import myTheme from "../common/theme";
 
 interface ChatroomComponentInterface {
   currentRoom: string;
@@ -30,6 +29,7 @@ interface ChatroomComponentInterface {
   setAllMessages: React.Dispatch<React.SetStateAction<ReceivedMessage[]>>;
   showRoomSettings: boolean;
   setShowRoomSettings: React.Dispatch<React.SetStateAction<boolean>>;
+  onScroll: () => void;
 }
 
 const renderMessage = keyframes`
@@ -87,30 +87,22 @@ const Chatroom = ({
   setAllMessages,
   showRoomSettings,
   setShowRoomSettings,
+  onScroll,
 }: ChatroomComponentInterface) => {
   const [message, setMessage] = useState("");
-
-  Io.socket.on("display-message", (data: ReceivedMessage) => {
-    let chatMessages = [...allMessages];
-    chatMessages.push(data);
-    setAllMessages(chatMessages);
-    if (data.chatroom === currentRoom) {
-      setUpdateView(!updateView);
-    }
-  });
 
   const sendMessage = () => {
     Io.socket.emit("send-message", {
       message: message,
       username: username,
       chatroom: currentRoom,
-      timestamp: JSON.stringify(Date.now()),
+      timestamp: Date.now(),
     });
     setMessage("");
   };
 
   const renderDate = (unixTime: number): string => {
-    var date = new Date(unixTime);
+    const date = new Date(unixTime);
     const hours = date.getHours();
     const hourFormat = hours < 13 ? hours : hours - 12;
     const minutes = date.getMinutes();
@@ -126,11 +118,12 @@ const Chatroom = ({
       display="flex"
       flexDirection="column"
       width="75%"
-      padding="1rem 0 2rem"
+      padding="1rem 0 1rem"
       boxSizing="border-box"
       position="relative"
       sx={{
-        border: `1px solid ${myTheme.palette.primary.light}`,
+        border: `1px solid black`,
+        borderColor: "primary.light",
         borderLeft: "none",
         ["@media (max-width:850px)"]: {
           position: "absolute",
@@ -188,6 +181,7 @@ const Chatroom = ({
                 width: "0.3rem",
               },
             }}
+            endIcon={<RoomPreferencesIcon />}
           >
             <Typography
               component="span"
@@ -199,105 +193,129 @@ const Chatroom = ({
             >
               {showRoomSettings ? "Chat" : "Room details"}
             </Typography>
-            <RoomPreferencesIcon
+            {/* <RoomPreferencesIcon
               sx={{
                 marginLeft: "0.75rem",
+
                 ["@media (max-width:500px)"]: {
                   marginLeft: "0",
                 },
               }}
-            />
+            /> */}
           </Button>
         </Box>
       </Box>
+      {showRoomSettings && (
+        <RoomSettingsScreen
+          chatrooms={chatrooms}
+          currentRoom={currentRoom}
+          username={username}
+          setShowChatroom={setShowChatroom}
+        />
+      )}
       <Box
-        display="flex"
-        flexDirection="column"
-        width="100%"
-        height="98%"
-        position="relative"
+        overflow="auto"
+        padding="1rem"
+        boxSizing="border-box"
+        height="100%"
+        ref={chatContainer}
+        margin="1rem 0"
+        sx={{
+          // scrollBehavior: "smooth",
+          borderTop: `1px solid black`,
+          borderBottom: `1px solid black`,
+          borderColor: "primary.light",
+        }}
+        onScroll={onScroll}
       >
-        {showRoomSettings && (
-          <RoomSettingsScreen
-            chatrooms={chatrooms}
-            currentRoom={currentRoom}
-            username={username}
-            setShowChatroom={setShowChatroom}
-          />
-        )}
-        <Box
-          overflow="auto"
-          padding="1rem"
-          boxSizing="border-box"
-          ref={chatContainer}
-          height="85%"
-          maxHeight="85%"
-          margin="1rem 0"
-          sx={{
-            scrollBehavior: "smooth",
-            borderTop: `1px solid ${myTheme.palette.primary.light}`,
-            borderBottom: `1px solid ${myTheme.palette.primary.light}`,
-          }}
-        >
-          {allMessages.length &&
-            allMessages
-              .filter((data) => data.chatroom === currentRoom)
-              .map((data) => (
+        {allMessages.length &&
+          allMessages
+            .filter((data: ReceivedMessage) => data.chatroom === currentRoom)
+            .sort((a, b) => a.timestamp - b.timestamp)
+            .map((data: ReceivedMessage, i) => {
+              let datedMessage = null;
+
+              if (i > 0) {
+                if (
+                  allMessages[i].timestamp - allMessages[i - 1].timestamp >=
+                  86400000
+                  //   ||
+                  // (new Date(allMessages[i].timestamp).getHours() === 24 &&
+                  //   new Date(allMessages[i].timestamp).getMinutes() === 0 &&
+                  //   new Date(allMessages[i].timestamp).getSeconds() === 0)
+                ) {
+                  datedMessage = {
+                    chatroom: data.chatroom,
+                    message: "New message on a new day",
+                    timestamp: new Date(
+                      allMessages[i].timestamp
+                    ).toLocaleDateString(),
+                    username: "Puddl",
+                  };
+                }
+              }
+              return (
                 <Box key={data.timestamp}>
                   {data.username === "Puddl" ? (
                     <ServerMessage>{data.message}</ServerMessage>
                   ) : (
-                    <ChatBubble
-                      sx={{
-                        marginLeft: data.username !== username ? "0" : "auto",
-                        backgroundColor:
-                          data.username === username ? "blue" : "green",
-                      }}
-                    >
-                      {data.username !== username && (
-                        <Typography>{data.username}</Typography>
+                    <>
+                      {datedMessage && (
+                        <ServerMessage>{datedMessage.timestamp}</ServerMessage>
                       )}
-                      <Typography>{data.message}</Typography>
-                      <Typography>
-                        {renderDate(Number(data.timestamp))}
-                      </Typography>
-                    </ChatBubble>
+                      <ChatBubble
+                        sx={{
+                          marginLeft: data.username !== username ? "0" : "auto",
+                          backgroundColor:
+                            data.username === username ? "blue" : "green",
+                        }}
+                      >
+                        {data.username !== username && (
+                          <Typography>{data.username}</Typography>
+                        )}
+                        <Typography>{data.message}</Typography>
+                        <Typography>{renderDate(data.timestamp)}</Typography>
+                      </ChatBubble>
+                    </>
                   )}
                 </Box>
-              ))}
-        </Box>
-        <Box display="flex" padding="0.5rem 1rem">
-          <TextField
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            label="Message"
-            fullWidth={true}
-            sx={{ marginRight: "2rem" }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                sendMessage();
-              }
-            }}
-            variant="standard"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <CreateOutlinedIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-
-          <Button
-            onClick={() => {
+              );
+            })}
+      </Box>
+      <Box display="flex" padding="0.5rem 1rem">
+        <TextField
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          label="Message"
+          fullWidth={true}
+          name="Message"
+          sx={{ marginRight: "2rem" }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && message.length > 0) {
               sendMessage();
-            }}
-            variant="contained"
-            endIcon={<SendOutlinedIcon />}
-          >
-            Send
-          </Button>
-        </Box>
+            }
+          }}
+          variant="standard"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <CreateOutlinedIcon />
+              </InputAdornment>
+            ),
+          }}
+        />
+
+        <Button
+          onClick={() => {
+            if (message.length > 0) {
+              sendMessage();
+            }
+          }}
+          variant="contained"
+          endIcon={<SendOutlinedIcon />}
+        >
+          Send
+        </Button>
       </Box>
     </Box>
   );

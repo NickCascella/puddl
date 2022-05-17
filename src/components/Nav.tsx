@@ -8,12 +8,16 @@ import CreateOutlinedIcon from "@mui/icons-material/CreateOutlined";
 import PersonAddAltOutlinedIcon from "@mui/icons-material/PersonAddAltOutlined";
 import MeetingRoomOutlinedIcon from "@mui/icons-material/MeetingRoomOutlined";
 import Io from "../utils/socket";
-import myTheme from "../common/theme";
+import { Notifications } from "../styles/globalTypes";
 
 interface NavInterface {
+  username: string;
   createRoom: string;
   setCreateRoom: (value: React.SetStateAction<string>) => void;
   setCurrentRoom: (value: React.SetStateAction<string>) => void;
+  currentRoom: string;
+  notifications: Notifications;
+  setNotifications: React.Dispatch<React.SetStateAction<Notifications>>;
   chatrooms: {
     joinedRoom: string;
     chatUsers: { username: string; online: boolean }[];
@@ -37,9 +41,13 @@ to {transform: translateX(0%)},
 `;
 
 const Nav = ({
+  username,
   createRoom,
   setCreateRoom,
   setCurrentRoom,
+  notifications,
+  setNotifications,
+  currentRoom,
   chatrooms,
   updateView,
   setUpdateView,
@@ -59,7 +67,8 @@ const Nav = ({
       width="25%"
       height="100%"
       sx={{
-        border: `1px solid ${myTheme.palette.primary.light}`,
+        border: "1px solid black",
+        borderColor: "primary.light",
         ["@media (max-width:850px)"]: {
           width: "100%",
           animation: `${
@@ -113,13 +122,13 @@ const Nav = ({
         variant="standard"
       />
       <Box
-        height="65.1%"
-        maxHeight="65.1%"
+        height="64%"
         overflow="auto"
         marginTop="1rem"
         borderRadius="3px"
         sx={{
-          border: `1px solid ${myTheme.palette.primary.light}`,
+          border: `1px solid black`,
+          borderColor: "primary.light",
         }}
       >
         {chatrooms
@@ -135,20 +144,47 @@ const Nav = ({
                 boxSizing: "border-box",
                 display: "flex",
                 alignItems: "center",
-                borderBottom: `1px solid ${myTheme.palette.primary.light}`,
+                borderBottom: `1px solid black`,
+                borderColor: "primary.light",
                 ":hover": {
                   cursor: "pointer",
                 },
+                backgroundColor:
+                  currentRoom === room.joinedRoom ? "primary.light" : "white",
               }}
               onClick={() => {
                 setCurrentRoom(room.joinedRoom);
                 setUpdateView(!updateView);
                 setShowChatroom(!showChatroom);
                 setShowRoomSettings(false);
+                if (notifications[room.joinedRoom]) {
+                  let oldNotifications = { ...notifications };
+                  oldNotifications[room.joinedRoom] = 0;
+                  setNotifications(oldNotifications);
+                  Io.socket.emit("delete-notifications", {
+                    username,
+                    chatroom: room.joinedRoom,
+                  });
+                }
               }}
             >
               <MeetingRoomOutlinedIcon sx={{ marginRight: "0.5rem" }} />{" "}
-              {room.joinedRoom}
+              {room.joinedRoom}{" "}
+              {notifications[room.joinedRoom] > 0 && (
+                <Box
+                  sx={{
+                    marginLeft: "auto",
+                    padding: "0.25rem",
+                    width: "1.1rem",
+                    height: "1.1rem",
+                    textAlign: "center",
+                    borderRadius: "50%",
+                    backgroundColor: "primary.light",
+                  }}
+                >
+                  {notifications[room.joinedRoom]}
+                </Box>
+              )}
             </Box>
           ))}
       </Box>

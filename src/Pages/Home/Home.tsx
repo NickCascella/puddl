@@ -11,6 +11,7 @@ import {
   ReceivedMessage,
   ChatroomDataInterface,
   priorMessages,
+  Notifications,
 } from "../../styles/globalTypes";
 
 const Home = () => {
@@ -24,7 +25,8 @@ const Home = () => {
   const [showChatroom, setShowChatroom] = useState(false);
   const [allMessages, setAllMessages] = useState<Array<ReceivedMessage>>([]);
   const [showRoomSettings, setShowRoomSettings] = useState(false);
-
+  const [notifications, setNotifications] = useState<Notifications>({});
+  const [paginationRef, setPaginationRef] = useState<Notifications>({});
   useEffect(() => {
     const verifyUser = async () => {
       const token = sessionStorage.getItem("token");
@@ -61,13 +63,57 @@ const Home = () => {
       Io.socket.emit("retrieve-prior-messages", {
         chatrooms: data.map((room) => room.joinedRoom),
       });
+      Io.socket.emit("get-old-notifications", {
+        username,
+      });
     };
 
     const retrievedPriorMessages = (data: priorMessages) => {
-      let messages = [...allMessages];
+      const messages = [...allMessages];
       let newMessageList = messages.concat(data.allMessages);
       setAllMessages(newMessageList);
       setUpdateView(!updateView);
+    };
+
+    const retrievedPriorNotifications = (data: Notifications) => {
+      console.log(data);
+      setNotifications(data);
+    };
+
+    const fetchedAdditionalMessages = (data: ReceivedMessage[]) => {
+      if (data.length) {
+        let allMessagesCopy = [...allMessages];
+        allMessagesCopy = allMessagesCopy.concat(data);
+        setAllMessages(allMessagesCopy);
+        if (chatContainer.current) {
+          chatContainer.current.scrollTop =
+            chatContainer.current.scrollHeight * 0.15;
+        }
+      }
+    };
+
+    const displayNewMessage = (data: ReceivedMessage) => {
+      let chatMessages = [...allMessages];
+      chatMessages.push(data);
+
+      if (currentRoom !== data.chatroom && data.username !== username) {
+        let oldNotifications = { ...notifications };
+
+        oldNotifications[data.chatroom]
+          ? oldNotifications[data.chatroom]++
+          : (oldNotifications[data.chatroom] = 1);
+        Io.socket.emit("log-notification", {
+          username: username,
+          chatroom: data.chatroom,
+          notifications: oldNotifications[data.chatroom],
+        });
+        setNotifications(oldNotifications);
+      }
+
+      setAllMessages(chatMessages);
+      if (data.chatroom === currentRoom) {
+        setUpdateView(!updateView);
+      }
     };
 
     const joinedRoom = (data: ChatroomDataInterface) => {
@@ -113,10 +159,13 @@ const Home = () => {
       setChatrooms(myChats);
     };
 
-    const otherUserLeftChat = (data: any) => {
+    const otherUserLeftChat = (data: {
+      username: string;
+      chatroom: string;
+    }) => {
       let myChats = [...chatrooms];
       let chatIndex = myChats.findIndex(
-        (room) => room.joinedRoom === data.joinedRoom
+        (room) => room.joinedRoom === data.chatroom
       );
       let updatedChat = myChats.find(
         (room) => room.joinedRoom === data.chatroom
@@ -144,21 +193,30 @@ const Home = () => {
     };
 
     Io.socket.on("retrieved-prior-messages", retrievedPriorMessages);
+    Io.socket.on("fetched-additional-messages", fetchedAdditionalMessages);
+    Io.socket.on("retrieved-prior-notifications", retrievedPriorNotifications);
     Io.socket.on("fetch-user-chat", fetchUserChat);
     Io.socket.on("joined-room", joinedRoom);
     Io.socket.on("left-chat", leftChat);
     Io.socket.on("other-user-left", otherUserLeftChat);
     Io.socket.on("other-user-status", otherUserStatus);
+    Io.socket.on("display-message", displayNewMessage);
 
     return () => {
       Io.socket.off("fetch-user-chat", fetchUserChat);
       Io.socket.off("retrieved-prior-messages", retrievedPriorMessages);
+      Io.socket.off(
+        "retrieved-prior-notifications",
+        retrievedPriorNotifications
+      );
+      Io.socket.off("fetched-additional-messages", fetchedAdditionalMessages);
       Io.socket.off("joined-room", joinedRoom);
       Io.socket.off("left-chat", leftChat);
       Io.socket.off("other-user-left", otherUserLeftChat);
       Io.socket.off("other-user-status", otherUserStatus);
+      Io.socket.off("display-message", displayNewMessage);
     };
-  }, [chatrooms, allMessages]);
+  }, [chatrooms, allMessages, notifications, currentRoom]);
 
   const joinRoom = () => {
     if (
@@ -175,6 +233,25 @@ const Home = () => {
       username: username,
       timestamp: JSON.stringify(Date.now()),
     });
+  };
+
+  const onScroll = () => {
+    if (chatContainer.current) {
+      const scrollY = window.scrollY;
+      const refScrollPosition = chatContainer.current.scrollTop;
+      if (scrollY === refScrollPosition) {
+        let paginationRefCopy = { ...paginationRef };
+        paginationRefCopy[currentRoom]
+          ? (paginationRefCopy[currentRoom] += 10)
+          : (paginationRefCopy[currentRoom] = 10);
+
+        Io.socket.emit("fetch-additional-messages", {
+          chatroom: currentRoom,
+          offset: paginationRefCopy[currentRoom],
+        });
+        setPaginationRef(paginationRefCopy);
+      }
+    }
   };
 
   if (!username) {
@@ -194,9 +271,13 @@ const Home = () => {
         position="relative"
       >
         <Nav
+          username={username}
           createRoom={createRoom}
           setCreateRoom={setCreateRoom}
           setCurrentRoom={setCurrentRoom}
+          currentRoom={currentRoom}
+          notifications={notifications}
+          setNotifications={setNotifications}
           chatrooms={chatrooms}
           updateView={updateView}
           setUpdateView={setUpdateView}
@@ -218,6 +299,7 @@ const Home = () => {
           setAllMessages={setAllMessages}
           showRoomSettings={showRoomSettings}
           setShowRoomSettings={setShowRoomSettings}
+          onScroll={onScroll}
         />
       </Box>
     </Box>

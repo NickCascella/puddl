@@ -12,7 +12,7 @@ export interface ReceivedMessage {
   message: string;
   username: string;
   chatroom: string;
-  timestamp: string;
+  timestamp: number;
 }
 
 export interface ChatroomDataInterface {
@@ -23,4 +23,8 @@ export interface ChatroomDataInterface {
 
 export interface priorMessages {
   allMessages: ReceivedMessage[];
+}
+
+export interface Notifications {
+  [key: string]: number;
 }
