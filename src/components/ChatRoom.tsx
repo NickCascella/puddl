@@ -10,11 +10,12 @@ import { useState } from "react";
 import Io from "../utils/socket";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SendOutlinedIcon from "@mui/icons-material/SendOutlined";
-import CreateOutlinedIcon from "@mui/icons-material/CreateOutlined";
+
 import RoomPreferencesIcon from "@mui/icons-material/RoomPreferences";
 import RoomSettingsScreen from "./RoomSettingsScreen";
-import { InputAdornment } from "@mui/material";
+
 import { ChatroomDataInterface, ReceivedMessage } from "../styles/globalTypes";
+import LoadingAnimation from "../components/Loading";
 
 interface ChatroomComponentInterface {
   currentRoom: string;
@@ -23,10 +24,7 @@ interface ChatroomComponentInterface {
   chatContainer: React.RefObject<HTMLDivElement>;
   showChatroom: boolean;
   setShowChatroom: (value: React.SetStateAction<boolean>) => void;
-  updateView: boolean;
-  setUpdateView: (value: React.SetStateAction<boolean>) => void;
   allMessages: ReceivedMessage[];
-  setAllMessages: React.Dispatch<React.SetStateAction<ReceivedMessage[]>>;
   showRoomSettings: boolean;
   setShowRoomSettings: React.Dispatch<React.SetStateAction<boolean>>;
   onScroll: () => void;
@@ -43,14 +41,15 @@ to {transform: translateY(0%);
 
 const ChatBubble = styled("div")(({ theme }) => ({
   color: "white",
-  backgroundColor: theme.palette.primary.main,
   padding: "0.5rem",
   borderRadius: 4,
   boxSizing: "border-box",
-  marginBottom: "1rem",
+  marginBottom: "1.5rem",
   maxWidth: "70%",
   width: "fit-content",
   animation: `${renderMessage} 0.4s ease-out forwards`,
+  position: "relative",
+  wordWrap: "break-word",
 }));
 
 const ServerMessage = styled("div")({
@@ -61,7 +60,8 @@ const ServerMessage = styled("div")({
   margin: "0 auto",
   marginBottom: "1rem",
   textAlign: "center",
-  width: "70%",
+  maxWidth: "70%",
+  width: "max-content",
 });
 
 const displayChatroom = keyframes`
@@ -80,11 +80,8 @@ const Chatroom = ({
   chatContainer,
   showChatroom,
   setShowChatroom,
-  updateView,
-  setUpdateView,
   chatrooms,
   allMessages,
-  setAllMessages,
   showRoomSettings,
   setShowRoomSettings,
   onScroll,
@@ -111,6 +108,110 @@ const Chatroom = ({
       hourFormat + ":" + minuteFormat + ` ${hours < 13 ? "am" : "pm"}`;
 
     return formattedTime;
+  };
+
+  const renderChatMessages = () => {
+    const specificChatMessages = allMessages
+      .filter((data: ReceivedMessage) => data.chatroom === currentRoom)
+      .sort((a, b) => a.timestamp - b.timestamp);
+
+    return specificChatMessages.map((data: ReceivedMessage, i) => {
+      let datedMessage = null;
+
+      if (i > 0) {
+        if (
+          specificChatMessages[i].timestamp -
+            specificChatMessages[i - 1].timestamp >=
+          86400000
+        ) {
+          const date = new Date(specificChatMessages[i].timestamp);
+          const months = [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+          ];
+          const month = months[date.getMonth()];
+          const day = date.getDate();
+          datedMessage = {
+            chatroom: data.chatroom,
+            message: "New message on a new day",
+            timestamp: `${month} ${day}`,
+            username: "Puddl",
+          };
+        }
+      }
+      return (
+        <Box key={data.timestamp}>
+          {data.username === "Puddl" ? (
+            <>
+              {datedMessage && (
+                <ServerMessage>{datedMessage.timestamp}</ServerMessage>
+              )}
+              <ServerMessage>{data.message}</ServerMessage>
+            </>
+          ) : (
+            <>
+              {datedMessage && (
+                <ServerMessage>{datedMessage.timestamp}</ServerMessage>
+              )}
+              <ChatBubble
+                sx={{
+                  marginLeft: data.username !== username ? "0" : "auto",
+                  backgroundColor:
+                    data.username === username
+                      ? "primary.dark"
+                      : "secondary.dark",
+                  "&:before": {
+                    content: "''",
+                    width: "0px",
+                    height: "0px",
+                    position: "absolute",
+                    borderLeft: "10px solid",
+                    borderTop: "10px solid",
+                    borderColor:
+                      data.username === username
+                        ? "primary.dark"
+                        : "secondary.dark",
+                    borderRight: "10px solid transparent",
+                    borderBottom: "10px solid transparent",
+                    right:
+                      data.username === username ? "0px" : "calc(100% - 20px)",
+                    bottom: "-16px",
+                    transform: data.username === username ? "scaleX(-1)" : "",
+                  },
+                }}
+              >
+                {data.username !== username && (
+                  <Typography sx={{ fontSize: "0.85rem" }}>
+                    {data.username}
+                  </Typography>
+                )}
+                <Typography>{data.message}</Typography>
+                <Typography
+                  sx={{
+                    fontSize: "0.75rem",
+                    width: "max-content",
+                    margin:
+                      data.username === username ? "0 0 0 auto" : "0 auto 0 0",
+                  }}
+                >
+                  {renderDate(data.timestamp)}
+                </Typography>
+              </ChatBubble>
+            </>
+          )}
+        </Box>
+      );
+    });
   };
 
   return (
@@ -211,6 +312,7 @@ const Chatroom = ({
           currentRoom={currentRoom}
           username={username}
           setShowChatroom={setShowChatroom}
+          setShowRoomSettings={setShowRoomSettings}
         />
       )}
       <Box
@@ -221,95 +323,60 @@ const Chatroom = ({
         ref={chatContainer}
         margin="1rem 0"
         sx={{
-          // scrollBehavior: "smooth",
           borderTop: `1px solid black`,
           borderBottom: `1px solid black`,
           borderColor: "primary.light",
         }}
         onScroll={onScroll}
       >
-        {allMessages.length &&
-          allMessages
-            .filter((data: ReceivedMessage) => data.chatroom === currentRoom)
-            .sort((a, b) => a.timestamp - b.timestamp)
-            .map((data: ReceivedMessage, i) => {
-              let datedMessage = null;
+        {allMessages.length && renderChatMessages()}
 
-              if (i > 0) {
-                if (
-                  allMessages[i].timestamp - allMessages[i - 1].timestamp >=
-                  86400000
-                  //   ||
-                  // (new Date(allMessages[i].timestamp).getHours() === 24 &&
-                  //   new Date(allMessages[i].timestamp).getMinutes() === 0 &&
-                  //   new Date(allMessages[i].timestamp).getSeconds() === 0)
-                ) {
-                  datedMessage = {
-                    chatroom: data.chatroom,
-                    message: "New message on a new day",
-                    timestamp: new Date(
-                      allMessages[i].timestamp
-                    ).toLocaleDateString(),
-                    username: "Puddl",
-                  };
-                }
-              }
-              return (
-                <Box key={data.timestamp}>
-                  {data.username === "Puddl" ? (
-                    <ServerMessage>{data.message}</ServerMessage>
-                  ) : (
-                    <>
-                      {datedMessage && (
-                        <ServerMessage>{datedMessage.timestamp}</ServerMessage>
-                      )}
-                      <ChatBubble
-                        sx={{
-                          marginLeft: data.username !== username ? "0" : "auto",
-                          backgroundColor:
-                            data.username === username ? "blue" : "green",
-                        }}
-                      >
-                        {data.username !== username && (
-                          <Typography>{data.username}</Typography>
-                        )}
-                        <Typography>{data.message}</Typography>
-                        <Typography>{renderDate(data.timestamp)}</Typography>
-                      </ChatBubble>
-                    </>
-                  )}
-                </Box>
-              );
-            })}
+        {!allMessages.length && (
+          <Box
+            width="100%"
+            marginTop="5rem"
+            display="flex"
+            justifyContent="center"
+            alignItems="center"
+          >
+            {" "}
+            <LoadingAnimation />{" "}
+          </Box>
+        )}
       </Box>
       <Box display="flex" padding="0.5rem 1rem">
         <TextField
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={(e) => setMessage(e.target.value.trim())}
           label="Message"
           fullWidth={true}
           name="Message"
-          sx={{ marginRight: "2rem" }}
+          sx={{
+            marginRight: "2rem",
+            border: "1px solid primary.main",
+            height: "100%",
+          }}
+          multiline={true}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && message.length > 0) {
-              sendMessage();
+            if (e.key === "Enter" && chatContainer.current) {
+              chatContainer.current.scrollTop =
+                chatContainer.current.scrollHeight;
             }
           }}
-          variant="standard"
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <CreateOutlinedIcon />
-              </InputAdornment>
-            ),
-          }}
+          minRows={1}
+          maxRows={5}
+          variant="outlined"
         />
 
         <Button
           onClick={() => {
-            if (message.length > 0) {
+            if (message.trim().length > 0) {
               sendMessage();
             }
+          }}
+          sx={{
+            height: "max-content",
+            margin: "auto 0",
           }}
           variant="contained"
           endIcon={<SendOutlinedIcon />}

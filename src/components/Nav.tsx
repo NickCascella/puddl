@@ -8,7 +8,7 @@ import CreateOutlinedIcon from "@mui/icons-material/CreateOutlined";
 import PersonAddAltOutlinedIcon from "@mui/icons-material/PersonAddAltOutlined";
 import MeetingRoomOutlinedIcon from "@mui/icons-material/MeetingRoomOutlined";
 import Io from "../utils/socket";
-import { Notifications } from "../styles/globalTypes";
+import { DynamicKeyIntegerPair } from "../styles/globalTypes";
 
 interface NavInterface {
   username: string;
@@ -16,8 +16,8 @@ interface NavInterface {
   setCreateRoom: (value: React.SetStateAction<string>) => void;
   setCurrentRoom: (value: React.SetStateAction<string>) => void;
   currentRoom: string;
-  notifications: Notifications;
-  setNotifications: React.Dispatch<React.SetStateAction<Notifications>>;
+  notifications: DynamicKeyIntegerPair;
+  setNotifications: React.Dispatch<React.SetStateAction<DynamicKeyIntegerPair>>;
   chatrooms: {
     joinedRoom: string;
     chatUsers: { username: string; online: boolean }[];
@@ -28,6 +28,12 @@ interface NavInterface {
   setShowChatroom: (value: React.SetStateAction<boolean>) => void;
   joinRoom: () => void;
   setShowRoomSettings: React.Dispatch<React.SetStateAction<boolean>>;
+  chatContainer: React.RefObject<HTMLDivElement>;
+  chatroomScrollLocations: DynamicKeyIntegerPair;
+  setChatroomScrollLocations: React.Dispatch<
+    React.SetStateAction<DynamicKeyIntegerPair>
+  >;
+  joinRoomError: string;
 }
 
 const hideChatsList = keyframes`
@@ -55,6 +61,10 @@ const Nav = ({
   showChatroom,
   joinRoom,
   setShowRoomSettings,
+  chatContainer,
+  chatroomScrollLocations,
+  setChatroomScrollLocations,
+  joinRoomError,
 }: NavInterface) => {
   const navigate = useNavigate();
   const [filterRooms, setFilterRooms] = useState("");
@@ -87,7 +97,7 @@ const Nav = ({
           label="Room ID"
           value={createRoom}
           fullWidth={true}
-          sx={{ marginRight: "2rem" }}
+          sx={{ height: "max-content", margin: "auto 2rem auto 0" }}
           onChange={(e) => setCreateRoom(e.target.value)}
           InputProps={{
             startAdornment: (
@@ -97,6 +107,8 @@ const Nav = ({
             ),
           }}
           variant="standard"
+          error={joinRoomError ? true : false}
+          helperText={joinRoomError}
         />
 
         <Button
@@ -153,6 +165,14 @@ const Nav = ({
                   currentRoom === room.joinedRoom ? "primary.light" : "white",
               }}
               onClick={() => {
+                if (chatContainer.current) {
+                  const refScrollPosition = chatContainer.current.scrollTop;
+                  let chatroomScrollLocationsCopy = {
+                    ...chatroomScrollLocations,
+                  };
+                  chatroomScrollLocationsCopy[currentRoom] = refScrollPosition;
+                  setChatroomScrollLocations(chatroomScrollLocationsCopy);
+                }
                 setCurrentRoom(room.joinedRoom);
                 setUpdateView(!updateView);
                 setShowChatroom(!showChatroom);

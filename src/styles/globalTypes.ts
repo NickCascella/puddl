@@ -21,10 +21,14 @@ export interface ChatroomDataInterface {
   username: string;
 }
 
-export interface priorMessages {
+export interface PriorMessages {
   allMessages: ReceivedMessage[];
 }
 
-export interface Notifications {
+export interface DynamicKeyIntegerPair {
   [key: string]: number;
+}
+export interface UserChatroomPair {
+  username: string;
+  chatroom: string;
 }

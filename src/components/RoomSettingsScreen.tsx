@@ -11,6 +11,7 @@ interface RoomSettingsScreenInterface {
   }[];
   username: string;
   setShowChatroom: (value: React.SetStateAction<boolean>) => void;
+  setShowRoomSettings: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const RoomSettingsScreen = ({
@@ -18,6 +19,7 @@ const RoomSettingsScreen = ({
   currentRoom,
   username,
   setShowChatroom,
+  setShowRoomSettings,
 }: RoomSettingsScreenInterface) => {
   const leaveChat = () => {
     Io.socket.emit("leave-chat", {
@@ -25,6 +27,7 @@ const RoomSettingsScreen = ({
       chatroom: currentRoom,
     });
     setShowChatroom(false);
+    setShowRoomSettings(false);
   };
 
   return (

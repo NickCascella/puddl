@@ -109,7 +109,7 @@ const Auth = () => {
         />
         {location.pathname === "/signup" && (
           <TextField
-            margin={"normal"}
+            margin="normal"
             type="password"
             label="Confirm Password"
             value={confirmPassword}
